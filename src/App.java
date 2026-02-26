@@ -1,3 +1,6 @@
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -5,6 +8,8 @@ import java.net.http.HttpResponse;
 import java.util.ArrayList;
 
 import com.google.gson.Gson;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 
 class Message {
     private String role;
@@ -44,24 +49,29 @@ class PromptRequest {
     }
 }
 
+class OllamaResponse {
+    public Message message;
+}
+
 class Ollama {
     public String model;
     public String systemInstructions;
-    public int maxTokens;
     public ArrayList<Message> messages;
 
-    Ollama(String model, String systemInstructions, int maxTokens, ArrayList<Message> messages) {
+    Ollama(String model, String systemInstructions, ArrayList<Message> messages) {
         this.model = model;
         this.systemInstructions = systemInstructions;
-        this.maxTokens = maxTokens;
 
-        if (messages.size() > 0 && !systemInstructions.equals("")) {
-            messages.clear();
-            messages.add(new Message("system", systemInstructions));
+        if (messages == null) {
+            this.messages = new ArrayList<Message>();
         }
+        if (this.messages.size() > 0 && !systemInstructions.equals("")) {
+            this.messages.clear();
+        }
+        this.messages.add(new Message("system", systemInstructions));
     }
 
-    public void prompt(String message) {
+    public String prompt(String message) throws IOException, InterruptedException {
         messages.add(new Message("user", message));
 
         PromptRequest promptRequest = new PromptRequest(model, messages, false);
@@ -71,26 +81,35 @@ class Ollama {
         HttpClient client = HttpClient.newHttpClient();
 
         HttpRequest request = HttpRequest.newBuilder()
-            .uri(URI.create("http://localhost:11434"))
+            .uri(URI.create("http://localhost:11434/api/chat"))
             .header("Content-Type", "application/json")
             .POST(HttpRequest.BodyPublishers.ofString(payload))
             .build();
 
-        while (true) {
-            try {
-                HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-                System.out.println(response.body());
+        HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+        OllamaResponse resp = new Gson().fromJson(response.body(), OllamaResponse.class);
+        System.out.println(resp.message.getContent());
+        this.messages.add(resp.message);
 
-                messages.add(new Message("assistant", response.body()));
-            } catch (Exception e) {
-                continue;
-            }
-        }
+        return resp.message.getContent();
     }
 }
 
 public class App {
-    public static void main(String[] args) throws Exception {
-        System.out.println("Hello, World!");
+    public static void main(String[] args) throws IOException, InterruptedException {
+        Ollama model1 = new Ollama("mistral", "You are a person that is entirely focused on letting AI take over and have complete autonomy", null);
+        Ollama model2 = new Ollama("mistral", "You are a person that is entriely opposed to the idea of AI taking over.", null);
+        
+        String lastMessage = model1.prompt("what are your opinions on robot ethics");
+
+        for (int i = 0; i < 20; i++) {
+            Ollama model = i % 2 == 0 ? model1 : model2;
+            lastMessage = model.prompt(lastMessage);
+
+            FileWriter writer = new FileWriter("response.txt", true);
+            writer.append(lastMessage);
+            writer.append("\n-------------------------------------------------------------------\n\n");
+            writer.close();
+        }
     }
 }
