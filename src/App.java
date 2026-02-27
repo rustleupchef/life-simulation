@@ -1,4 +1,3 @@
-import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.net.URI;
@@ -6,6 +5,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.ArrayList;
+import java.util.UUID;
 
 import com.google.gson.Gson;
 
@@ -55,6 +55,7 @@ class Ollama {
     public String model;
     public String systemInstructions;
     public ArrayList<Message> messages;
+    public String logOutput;
 
     Ollama(String model, String systemInstructions, ArrayList<Message> messages) {
         this.model = model;
@@ -67,6 +68,7 @@ class Ollama {
             this.messages.clear();
         }
         this.messages.add(new Message("system", systemInstructions));
+        this.logOutput = "logs/log-" + UUID.randomUUID().toString() + ".txt";
     }
 
     public String prompt(String message) throws IOException, InterruptedException {
@@ -89,25 +91,25 @@ class Ollama {
         System.out.println(resp.message.getContent());
         this.messages.add(resp.message);
 
+        FileWriter writer = new FileWriter(logOutput, true);
+        writer.append(resp.message.getContent());
+        writer.append("\n-------------------------------------------------------------------\n\n");
+        writer.close();
+
         return resp.message.getContent();
     }
 }
 
 public class App {
     public static void main(String[] args) throws IOException, InterruptedException {
-        Ollama model1 = new Ollama("mistral", "You are a person that is entirely focused on letting AI take over and have complete autonomy", null);
-        Ollama model2 = new Ollama("mistral", "You are a person that is entriely opposed to the idea of AI taking over.", null);
-        
+        Ollama model1 = new Ollama("mistral", "Pretend you are a person who is completely for AI and is unwilling to change for anything, but is very well educated and understands the benefits of AI. This person is very utilitarian.", null);
+        Ollama model2 = new Ollama("mistral", "Pretend you are a person who is completely against AI and is unwilling to change for anything, but is very well educated and understands the ethical implications of heavy involvement in AI. This person is very much a believer of firm principles and human dignity.", null);
+
         String lastMessage = model1.prompt("what are your opinions on robot ethics");
 
         for (int i = 0; i < 20; i++) {
             Ollama model = i % 2 == 0 ? model1 : model2;
-            lastMessage = model.prompt(lastMessage);
-
-            FileWriter writer = new FileWriter("response.txt", true);
-            writer.append(lastMessage);
-            writer.append("\n-------------------------------------------------------------------\n\n");
-            writer.close();
+            model.prompt(lastMessage);
         }
     }
 }
