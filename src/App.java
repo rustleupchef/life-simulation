@@ -8,8 +8,6 @@ import java.net.http.HttpResponse;
 import java.util.ArrayList;
 
 import com.google.gson.Gson;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
 
 class Message {
     private String role;
