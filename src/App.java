@@ -88,15 +88,19 @@ class Ollama {
 
         HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
         OllamaResponse resp = new Gson().fromJson(response.body(), OllamaResponse.class);
-        System.out.println(resp.message.getContent());
         this.messages.add(resp.message);
-
-        FileWriter writer = new FileWriter(logOutput, true);
-        writer.append(resp.message.getContent());
-        writer.append("\n-------------------------------------------------------------------\n\n");
-        writer.close();
+        log(resp.message.getContent());
 
         return resp.message.getContent();
+    }
+
+    public void log(String data) throws IOException {
+        FileWriter writer = new FileWriter(logOutput, true);
+        writer.append(data);
+        writer.append("\n-------------------------------------------------------------------\n\n");
+        writer.close();
+        System.out.println(data);
+        System.out.println("-------------------------------------------------------------------\n");
     }
 }
 
@@ -105,11 +109,13 @@ public class App {
         Ollama model1 = new Ollama("mistral", "Pretend you are a person who is completely for AI and is unwilling to change for anything, but is very well educated and understands the benefits of AI. This person is very utilitarian.", null);
         Ollama model2 = new Ollama("mistral", "Pretend you are a person who is completely against AI and is unwilling to change for anything, but is very well educated and understands the ethical implications of heavy involvement in AI. This person is very much a believer of firm principles and human dignity.", null);
 
-        String lastMessage = model1.prompt("what are your opinions on robot ethics");
+        String lastMessage = model2.prompt("what are your opinions on robot ethics");
+        model2.log("Model 2");
 
         for (int i = 0; i < 20; i++) {
             Ollama model = i % 2 == 0 ? model1 : model2;
             model.prompt(lastMessage);
+            model.log(i % 2 == 0 ? "Model 1" : "Model 2");
         }
     }
 }
