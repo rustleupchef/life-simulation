@@ -1,13 +1,18 @@
+import java.io.BufferedReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.UUID;
 
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 
 class Message {
     private String role;
@@ -74,7 +79,7 @@ class Ollama {
     public String prompt(String message) throws IOException, InterruptedException {
         messages.add(new Message("user", message));
 
-        PromptRequest promptRequest = new PromptRequest(model, messages, false);
+        PromptRequest promptRequest = new PromptRequest(model, messages, true);
         Gson gson = new Gson();
 
         String payload = gson.toJson(promptRequest);
@@ -86,12 +91,23 @@ class Ollama {
             .POST(HttpRequest.BodyPublishers.ofString(payload))
             .build();
 
-        HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-        OllamaResponse resp = new Gson().fromJson(response.body(), OllamaResponse.class);
-        this.messages.add(resp.message);
-        log(resp.message.getContent());
+        HttpResponse<InputStream> response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
+        BufferedReader reader = new BufferedReader(new InputStreamReader(response.body(), StandardCharsets.UTF_8));
 
-        return resp.message.getContent();
+        String text = "";
+        String line;
+        while ((line = reader.readLine()) != null) {
+            if (!line.isBlank()) {
+                System.out.print(line);
+                text += line;
+            }
+        }
+
+        return "";
+    }
+
+    public String getMessageHistory() {
+        return new GsonBuilder().setPrettyPrinting().create().toJson(messages);
     }
 
     public void log(String data) throws IOException {
@@ -106,15 +122,17 @@ class Ollama {
 
 public class App {
     public static void main(String[] args) throws IOException, InterruptedException {
-        Ollama model1 = new Ollama("mistral", "Pretend you are a person who is completely for AI and is unwilling to change for anything, but is very well educated and understands the benefits of AI. This person is very utilitarian.", null);
+        Ollama model1 = new Ollama("llama3", "Pretend you are a person who is completely for AI and is unwilling to change for anything, but is very well educated and understands the benefits of AI. This person is very utilitarian.", null);
         Ollama model2 = new Ollama("mistral", "Pretend you are a person who is completely against AI and is unwilling to change for anything, but is very well educated and understands the ethical implications of heavy involvement in AI. This person is very much a believer of firm principles and human dignity.", null);
 
         String lastMessage = model2.prompt("what are your opinions on robot ethics");
+        model2.log(model2.getMessageHistory());
         model2.log("Model 2");
 
         for (int i = 0; i < 20; i++) {
             Ollama model = i % 2 == 0 ? model1 : model2;
             model.prompt(lastMessage);
+            model.log(model.getMessageHistory());
             model.log(i % 2 == 0 ? "Model 1" : "Model 2");
         }
     }
