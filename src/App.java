@@ -98,12 +98,15 @@ class Ollama {
         String line;
         while ((line = reader.readLine()) != null) {
             if (!line.isBlank()) {
-                System.out.print(line);
-                text += line;
+                String content = new Gson().fromJson(line, OllamaResponse.class).message.getContent();
+                System.out.print(content);
+                text += content;
             }
         }
 
-        return "";
+        log(text);
+
+        return text;
     }
 
     public String getMessageHistory() {
@@ -126,13 +129,11 @@ public class App {
         Ollama model2 = new Ollama("mistral", "Pretend you are a person who is completely against AI and is unwilling to change for anything, but is very well educated and understands the ethical implications of heavy involvement in AI. This person is very much a believer of firm principles and human dignity.", null);
 
         String lastMessage = model2.prompt("what are your opinions on robot ethics");
-        model2.log(model2.getMessageHistory());
         model2.log("Model 2");
 
         for (int i = 0; i < 20; i++) {
             Ollama model = i % 2 == 0 ? model1 : model2;
-            model.prompt(lastMessage);
-            model.log(model.getMessageHistory());
+            lastMessage = model.prompt(lastMessage);
             model.log(i % 2 == 0 ? "Model 1" : "Model 2");
         }
     }
