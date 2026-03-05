@@ -9,6 +9,8 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.UUID;
 
 import com.google.gson.Gson;
@@ -123,18 +125,100 @@ class Ollama {
     }
 }
 
+class Item {
+
+    public enum Version { SATURATION, HEALTH, DAMAGE }   
+
+    public String name;
+    public Version type;
+    public int amount;
+
+    Item(String name, Version type, int amount) {
+        this.name = name;
+        this.type = type;
+        this.amount = amount;
+    }
+}
+
+class Person {
+    private String name;
+    private String personality;
+
+    private int maxHealth;
+    private int health;
+    private int maxSaturation;
+    private int saturation;
+
+    HashMap<String, Item> items;
+
+    private Ollama model;
+
+    Person(String name, String personality, int health, int saturation, String model) {
+        this.name = name;
+        this.personality = personality;
+
+        this.maxHealth = health;
+        this.health = health;
+
+        this.maxSaturation = saturation;
+        this.saturation = saturation;
+
+        items = new HashMap<String, Item>();
+
+        this.model = new Ollama(
+            model,
+            "Pretend you are a game character with this personality:" + this.personality,
+            null
+        );
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public int getHealth() {
+        return health;
+    }
+
+    public void takeDamage(int damage) {
+        this.health -= damage;
+        this.health = Math.clamp(health, 0, this.maxHealth);
+    }
+
+    public void addHealth(int health) {
+        takeDamage(-health);
+    }
+
+    public int getSaturation() {
+        return saturation;
+    }
+
+    public void takeSaturation(int saturation) {
+        this.saturation -= saturation;
+        this.saturation = Math.clamp(this.saturation, 0, this.maxSaturation);
+    }
+
+    public void addSaturation(int saturation) {
+        takeSaturation(-saturation);
+    }
+
+    public void grabItem(int index, ArrayList<Item> itemPool) {
+        Item item = itemPool.get(index);
+        if (this.items.containsKey(item.name)) {
+            item.amount += this.items.get(item.name).amount;
+            this.items.put(name, item);
+        }
+
+        this.items.put(name, item);
+    }
+
+    public String talk(Person person, String prompt) throws InterruptedException, IOException {
+        String message = person.model.prompt(prompt);
+        return message;
+    }
+}
+
 public class App {
     public static void main(String[] args) throws IOException, InterruptedException {
-        Ollama model1 = new Ollama("llama3", "Pretend you are a person who is completely for AI and is unwilling to change for anything, but is very well educated and understands the benefits of AI. This person is very utilitarian.", null);
-        Ollama model2 = new Ollama("mistral", "Pretend you are a person who is completely against AI and is unwilling to change for anything, but is very well educated and understands the ethical implications of heavy involvement in AI. This person is very much a believer of firm principles and human dignity.", null);
-
-        String lastMessage = model2.prompt("what are your opinions on robot ethics");
-        model2.log("Model 2");
-
-        for (int i = 0; i < 20; i++) {
-            Ollama model = i % 2 == 0 ? model1 : model2;
-            lastMessage = model.prompt(lastMessage);
-            model.log(i % 2 == 0 ? "Model 1" : "Model 2");
-        }
     }
 }
