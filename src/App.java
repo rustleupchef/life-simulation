@@ -10,7 +10,7 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import com.google.gson.Gson;
@@ -132,11 +132,13 @@ class Item {
     public String name;
     public Version type;
     public int amount;
+    public int quantity;
 
-    Item(String name, Version type, int amount) {
+    Item(String name, Version type, int amount, int quantity) {
         this.name = name;
         this.type = type;
         this.amount = amount;
+        this.quantity = quantity;
     }
 }
 
@@ -153,7 +155,7 @@ class Person {
 
     private Ollama model;
 
-    Person(String name, String personality, int health, int saturation, String model) {
+    Person(String name, String personality, int health, int saturation, HashMap<String, Item> items, String model) {
         this.name = name;
         this.personality = personality;
 
@@ -163,13 +165,23 @@ class Person {
         this.maxSaturation = saturation;
         this.saturation = saturation;
 
-        items = new HashMap<String, Item>();
+        this.items = items;
+        if (items == null)
+            this.items = new HashMap<String, Item>();
 
         this.model = new Ollama(
             model,
             "Pretend you are a game character with this personality:" + this.personality,
             null
         );
+    }
+
+    public Ollama getModel() {
+        return model;
+    }
+
+    public void setModel(Ollama model) {
+        this.model = model;
     }
 
     public String getName() {
@@ -204,11 +216,8 @@ class Person {
 
     public void grabItem(int index, ArrayList<Item> itemPool) {
         Item item = itemPool.get(index);
-        if (this.items.containsKey(item.name)) {
-            item.amount += this.items.get(item.name).amount;
-            this.items.put(name, item);
-        }
-
+        if (this.items.containsKey(item.name))
+            item.quantity += this.items.get(item.name).quantity;
         this.items.put(name, item);
     }
 
@@ -216,9 +225,60 @@ class Person {
         String message = person.model.prompt(prompt);
         return message;
     }
+
+    public void useItem(Person entity, String name, int quantity) {
+        Item item = this.items.get(name);
+        item.quantity -= quantity;
+        switch (item.type) {
+            case SATURATION:
+                entity.addSaturation(item.amount * quantity);
+                break;
+            case HEALTH:
+                entity.addHealth(item.amount * quantity);
+                break;
+            case DAMAGE:
+                entity.takeDamage(item.amount * quantity);
+                break;
+        }
+        this.items.put(name, item);
+    }
+
+    public String metaData() {
+        String name = "Name: " + this.name;
+        String personality = "Personality: " + this.personality;
+        String health = "Current Health: " + this.health + "\tMax Health: " + this.maxHealth;
+        String saturation = "Current Saturation: " + this.saturation + "\tMax Saturation: " + this.maxSaturation;
+
+        String items = "Items:\n";
+        for (Map.Entry<String, Item> entry : this.items.entrySet()) {
+            Item item = entry.getValue();
+            items += "\tName: " + item.name + "\tType: " + item.type + "\tMagnitude: " + item.amount + "\tQuantity: " + item.quantity;
+        }
+
+        return String.join("\n", new String[] {"These are your stats", name, personality, health, saturation, items});
+    }
 }
 
 public class App {
     public static void main(String[] args) throws IOException, InterruptedException {
+        Person person1 = new Person(
+            "Jessica",
+            "She is the most awful person on the entire planet", 
+            100, 
+            100, 
+            new HashMap<String, Item>() {{
+                put("Awesome Sauce", new Item(
+                    "Awesome Sauce", 
+                    Item.Version.HEALTH, 
+                    30, 
+                    800
+                ));
+            }}, 
+            "mistral"
+        );
+
+        person1.getModel().prompt(
+            person1.metaData() + "Would you give someone with only half your health some health packs; they have no other mechanism to get help"
+        );
     }
 }
