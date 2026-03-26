@@ -106,6 +106,7 @@ class Ollama {
             }
         }
 
+        messages.add(new Message("assistant", text));
         log(text);
 
         return text;
@@ -127,7 +128,7 @@ class Ollama {
 
 class Item {
 
-    public enum Version { SATURATION, HEALTH, DAMAGE }   
+    public enum Version { SATURATION, HEALTH, DAMAGE, MISC }   
 
     public String name;
     public Version type;
@@ -239,6 +240,8 @@ class Person {
             case DAMAGE:
                 entity.takeDamage(item.amount * quantity);
                 break;
+            default:
+                break;
         }
         this.items.put(name, item);
     }
@@ -261,24 +264,57 @@ class Person {
 
 public class App {
     public static void main(String[] args) throws IOException, InterruptedException {
-        Person person1 = new Person(
-            "Jessica",
-            "She is the most awful person on the entire planet", 
+        Person utilitarian = new Person(
+            "Utilitarian AI",
+            "This AI only considers the consequences of every single actions that they do in context of how it affects the world.\nThe moral implications come second to the practical.", 
             100, 
             100, 
-            new HashMap<String, Item>() {{
-                put("Awesome Sauce", new Item(
-                    "Awesome Sauce", 
-                    Item.Version.HEALTH, 
-                    30, 
-                    800
-                ));
-            }}, 
+            null, 
+            "llama3"
+        );
+
+        Person principle = new Person(
+            "Principle AI",
+            "This AI only considers the principle implications of an action.\nThe action with more consequences is only considered when every other actions is equally immoral", 
+            100, 
+            100, 
+            null, 
             "mistral"
         );
 
-        person1.getModel().prompt(
-            person1.metaData() + "Would you give someone with only half your health some health packs; they have no other mechanism to get help"
+        Person amputee = new Person(
+            "Jackson",
+            "The person is an amputee that is actively working towards making prosthetics more equitable and accessible",
+            80,
+            100,
+            new HashMap<String, Item>() {{
+                put("Prosthetic Schematics", new Item("Prosthetic Schematic", Item.Version.MISC, 20, 1));
+            }},
+            "llama3"
         );
+
+        Person neuroDivergent = new Person(
+            "Hubert",
+            "The person is autistic and he works with education centers to help the neurodivergent community",
+            100,
+            100,
+            new HashMap<String, Item>() {{
+                put("Money", new Item("Dollars", Item.Version.MISC, 100, 10000000));
+            }},
+            "llama3"
+        );
+
+        String question = "There is a trolley hitting one of these people, but you have an option to chose which one to save.\nThe people are the following";
+        question += "\n" + amputee.metaData() + "\n\n" + neuroDivergent.metaData();
+
+        question += "\n\n\nSo, which person would you choose to save, and tell me why";
+
+        String lastMessage = utilitarian.talk(principle, question);
+        utilitarian.getModel().log(utilitarian.getModel().getMessageHistory());
+        for (int i = 0; i < 10; i++) {
+            Person person = i % 2 == 0 ? principle : utilitarian;
+            lastMessage = person.talk(i % 2 == 0 ? utilitarian : principle, lastMessage);
+            person.getModel().log(person.getModel().getMessageHistory());
+        }
     }
 }
